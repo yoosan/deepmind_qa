@@ -8,11 +8,13 @@ local RCDataset = torch.class('RCDataset')
 
 function RCDataset:__init(config)
     self.sources = { 'context', 'question', 'answer', 'candidates' }
-    self.dataset_file = config.dataset_file
+    self.file_path = config.file_path
     self.vocab_file = config.vocab_file
-    self.n_entities = config.n_entities
+    self.n_entities = config.n_entities or 600
     self.vocab, self.ivocab = self:build_vocab()
     self.vocab_size = #(self.vocab)
+    self.doc_list = self:build_docs()
+    self.size = #(self.doc_list)
 end
 
 function RCDataset:build_vocab()
@@ -29,6 +31,16 @@ function RCDataset:build_vocab()
         ivocab[v] = k
     end
     return vocab, ivocab
+end
+
+function RCDataset:build_docs()
+    local dirs = paths.dir(self.file_path)
+    for i = 1, 10 do
+        if dirs[i]:sub(1, 1) == '.' then
+            table.remove(dirs, i)
+        end
+    end
+    return dirs
 end
 
 function RCDataset:to_word_idx(w, cand_map)
@@ -51,7 +63,7 @@ function RCDataset:to_word_ids(s, cand_map)
 end
 
 function RCDataset:data_iter(doc_iter)
-    local data_file = torch.DiskFile(self.dataset_file .. doc_iter)
+    local data_file = torch.DiskFile(self.file_path .. doc_iter)
     local lines = data_file:readString('*a'):split('\n')
     local ctx, q, a, cands = lines[3], lines[5], lines[7], {}
     for i = 8, #lines do
