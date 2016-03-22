@@ -1,0 +1,9 @@
+*~
+#*#
+.idea/
+*.iml
+data/
+.idea/
+.DS_Store
+*.txt
+test.lua
