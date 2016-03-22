@@ -102,7 +102,7 @@ function LSTM:new_cell()
 
     -- share parameters
     if self.master_cell then
-        share_params(cell, self.master_cell)
+        utils.share_params(cell, self.master_cell)
     end
     return cell
 end
@@ -186,7 +186,7 @@ function LSTM:share(lstm, ...)
     if self.mem_dim ~= lstm.mem_dim then error("LSTM memory dimension mismatch") end
     if self.num_layers ~= lstm.num_layers then error("LSTM layer count mismatch") end
     if self.gate_output ~= lstm.gate_output then error("LSTM output gating mismatch") end
-    share_params(self.master_cell, lstm.master_cell, ...)
+    utils.share_params(self.master_cell, lstm.master_cell, ...)
 end
 
 function LSTM:zeroGradParameters()
@@ -207,21 +207,5 @@ function LSTM:forget()
         else
             self.gradInput[i]:zero()
         end
-    end
-end
-
-function share_params(cell, src)
-    if torch.type(cell) == 'nn.gModule' then
-        for i = 1, #cell.forwardnodes do
-            local node = cell.forwardnodes[i]
-            if node.data.module then
-                node.data.module:share(src.forwardnodes[i].data.module,
-                    'weight', 'bias', 'gradWeight', 'gradBias')
-            end
-        end
-    elseif torch.isTypeOf(cell, 'nn.Module') then
-        cell:share(src, 'weight', 'bias', 'gradWeight', 'gradBias')
-    else
-        error('parameters cannot be shared for this input')
     end
 end

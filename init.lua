@@ -11,7 +11,7 @@ require('nn')
 require('nngraph')
 require('optim')
 require('xlua')
-
+include('utils/misc.lua')
 include('utils/data.lua')
 include('model/GRU.lua')
 include('model/LSTM.lua')
