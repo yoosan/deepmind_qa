@@ -29,3 +29,15 @@ function utils.share_params(cell, src)
         error('parameters cannot be shared for this input')
     end
 end
+
+function utils.argmax(v)
+    local idx = 1
+    local max = v[1]
+    for i = 2, v:size(1) do
+        if v[i] > max then
+            max = v[i]
+            idx = i
+        end
+    end
+    return idx
+end

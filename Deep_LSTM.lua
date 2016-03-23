@@ -78,7 +78,6 @@ function Deep_LSTM:train(dataset)
     if self.bilstm then self.lstm_b:training() end
 
     local indices = torch.randperm(dataset.size)
-
     for i = 1, dataset.size, self.batch_size do
         xlua.progress(i, dataset.size)
         local batch_size = math.min(i + self.batch_size - 1, dataset.size) - i + 1
@@ -127,8 +126,8 @@ function Deep_LSTM:LSTM_backward(seq, inputs, rep_grad)
         grad = torch.zeros(seq:nElement(), self.mem_dim)
         grad[seq:nElement()] = rep_grad
     else
-        grad = torch.zeros(seq:nElement(), self.num_layers, self.mem_dim)
-        for l = 1, self.num_layers do
+        grad = torch.zeros(seq:nElement(), self.layers, self.mem_dim)
+        for l = 1, self.layers do
             grad[{ seq:nElement(), l, {} }] = rep_grad[l]
         end
     end
@@ -145,9 +144,9 @@ function Deep_LSTM:BiLSTM_backward(seq, inputs, rep_grad)
         grad[seq:nElement()] = rep_grad[1]
         grad_b[1] = rep_grad[2]
     else
-        grad = torch.zeros(seq:nElement(), self.num_layers, self.mem_dim)
-        grad_b = torch.zeros(seq:nElement(), self.num_layers, self.mem_dim)
-        for l = 1, self.num_layers do
+        grad = torch.zeros(seq:nElement(), self.layers, self.mem_dim)
+        grad_b = torch.zeros(seq:nElement(), self.layers, self.mem_dim)
+        for l = 1, self.layers do
             grad[{ seq:nElement(), l, {} }] = rep_grad[1][l]
             grad_b[{ 1, l, {} }] = rep_grad[2][l]
         end
@@ -158,12 +157,33 @@ function Deep_LSTM:BiLSTM_backward(seq, inputs, rep_grad)
 end
 
 function Deep_LSTM:predict(seq)
+    self.lstm:evaluate()
+    self.qa_module:evaluate()
+    local inputs = self.emb:forward(seq)
+    local rep
+    if self.bilstm then
+        self.lstm_b:evaluate()
+        rep = {
+            self.lstm:forward(inputs),
+            self.lstm_b:forward(inputs, true),
+        }
+    else
+        rep = self.lstm:forward(inputs)
+    end
+    local logprobs = self.qa_module:forward(rep)
+    local prediction = utils.argmax(logprobs)
+
+    self.lstm:forget()
+    if self.bilstm then self.lstm_b:forget() end
+    return prediction
+
 end
 
 function Deep_LSTM:predict_dataset(dataset)
-    local prediction = torch.Tensor(dataset.size)
+    local predictions = torch.Tensor(dataset.size)
     for i = 1, dataset.size do
         xlua.progress(i, dataset.size)
-        prediction[i] = self:predict(dataset)
+        predictions[i] = self:predict(dataset:data_iter(dataset.doc_list[i]))
     end
+    return predictions
 end
