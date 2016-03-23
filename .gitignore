@@ -7,3 +7,4 @@ data/
 .DS_Store
 *.txt
 test.lua
+mis.lua

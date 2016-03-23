@@ -16,6 +16,7 @@ function Deep_LSTM:__init(config)
     self.bilstm = config.bilstm or false
 
     self.emb_dim = config.emb_dim or 256
+    self.emb = nn.LookupTable(self.vocab_size, self.emb_dim)
     self.criterion = nn.ClassNLLCriterion()
     self.qa_module = self:new_qa_module()
 
@@ -68,7 +69,7 @@ function Deep_LSTM:new_qa_module()
         logprobs = nn.LogSoftMax()(nn.Linear(input_dim, self.vocab_size)(vec))
     end
 
-    return nn.gMoudle(inputs, { logprobs })
+    return nn.gModule(inputs, { logprobs })
 end
 
 function Deep_LSTM:train(dataset)
@@ -83,15 +84,13 @@ function Deep_LSTM:train(dataset)
         local batch_size = math.min(i + self.batch_size - 1, dataset.size) - i + 1
 
         local feval = function(x)
-            self.grad_params:zeros()
+            self.grad_params:zero()
             self.emb:zeroGradParameters()
 
             local loss = 0
             for j = 1, batch_size do
                 local idx = indices[i + j - 1]
-                local doc = dataset:data_iter(dataset.docs_list[idx])
-                local ctx, q, a = doc['context'], doc['question'], doc['answer']
-                local seq = torch.cat({ ctx, torch.Tensor { dataset.ivocab['<SEP>'] }, q }, 1)
+                local seq, a = dataset:data_iter(dataset.doc_list[idx])
                 local inputs = self.emb:forward(seq)
                 local rep = self.lstm:forward(inputs)
                 local logprobs = self.qa_module:forward(rep)
@@ -124,7 +123,7 @@ end
 -- LSTM backward propagation
 function Deep_LSTM:LSTM_backward(seq, inputs, rep_grad)
     local grad
-    if self.num_layers == 1 then
+    if self.layers == 1 then
         grad = torch.zeros(seq:nElement(), self.mem_dim)
         grad[seq:nElement()] = rep_grad
     else
@@ -140,7 +139,7 @@ end
 -- Bidirectional LSTM backward propagation
 function Deep_LSTM:BiLSTM_backward(seq, inputs, rep_grad)
     local grad, grad_b
-    if self.num_layers == 1 then
+    if self.layers == 1 then
         grad = torch.zeros(seq:nElement(), self.mem_dim)
         grad_b = torch.zeros(seq:nElement(), self.mem_dim)
         grad[seq:nElement()] = rep_grad[1]
@@ -156,4 +155,15 @@ function Deep_LSTM:BiLSTM_backward(seq, inputs, rep_grad)
     local input_grads = self.lstm:backward(inputs, grad)
     local input_grads_b = self.lstm_b:backward(inputs, grad_b, true)
     return input_grads + input_grads_b
+end
+
+function Deep_LSTM:predict(seq)
+end
+
+function Deep_LSTM:predict_dataset(dataset)
+    local prediction = torch.Tensor(dataset.size)
+    for i = 1, dataset.size do
+        xlua.progress(i, dataset.size)
+        prediction[i] = self:predict(dataset)
+    end
 end

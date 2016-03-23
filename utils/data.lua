@@ -9,7 +9,7 @@ local RCDataset = torch.class('RCDataset')
 function RCDataset:__init(config)
     self.sources = { 'context', 'question', 'answer', 'candidates' }
     self.file_path = config.file_path
-    self.vocab_file = config.vocab_file
+    self.vocab_path = config.vocab_path
     self.n_entities = config.n_entities or 600
     self.vocab, self.ivocab = self:build_vocab()
     self.vocab_size = #(self.vocab)
@@ -18,7 +18,7 @@ function RCDataset:__init(config)
 end
 
 function RCDataset:build_vocab()
-    local vocab_file = torch.DiskFile(self.vocab_file)
+    local vocab_file = torch.DiskFile(self.vocab_path)
     local vocab = vocab_file:readString('*a'):split('\n')
     local ivocab = {}
     for i = 1, self.n_entities do
@@ -35,12 +35,13 @@ end
 
 function RCDataset:build_docs()
     local dirs = paths.dir(self.file_path)
-    for i = 1, 10 do
-        if dirs[i]:sub(1, 1) == '.' then
-            table.remove(dirs, i)
+    local docs = {}
+    for i = 1, #dirs do
+        if dirs[i]:len() > 3 then
+            table.insert(docs, dirs[i])
         end
     end
-    return dirs
+    return docs
 end
 
 function RCDataset:to_word_idx(w, cand_map)
@@ -62,8 +63,21 @@ function RCDataset:to_word_ids(s, cand_map)
     return torch.Tensor(sent_ids)
 end
 
-function RCDataset:data_iter(doc_iter)
-    local data_file = torch.DiskFile(self.file_path .. doc_iter)
+function RCDataset:data_iter(doc_name, left)
+    local doc = self:generate_doc(doc_name)
+    local ctx, q, a = doc['context'], doc['question'], doc['answer']
+    local seq
+    left = left or true
+    if left then
+        seq = torch.cat({ ctx, torch.Tensor { self.ivocab['<SEP>'] }, q }, 1)
+    else
+        seq = torch.cat({ q, torch.Tensor { self.ivocab['<SEP>'] }, ctx }, 1)
+    end
+    return seq, a
+end
+
+function RCDataset:generate_doc(doc_name)
+    local data_file = torch.DiskFile(self.file_path .. doc_name)
     local lines = data_file:readString('*a'):split('\n')
     local ctx, q, a, cands = lines[3], lines[5], lines[7], {}
     for i = 8, #lines do
