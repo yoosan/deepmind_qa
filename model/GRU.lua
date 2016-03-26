@@ -85,7 +85,7 @@ function GRU:new_cell()
 
     -- share parameters
     if self.master_cell then
-        share_params(cell, self.master_cell)
+        utils.share_params(cell, self.master_cell)
     end
     return cell
 end
@@ -168,7 +168,7 @@ function GRU:share(gru, ...)
     if self.in_dim ~= gru.in_dim then error("GRU input dimension mismatch") end
     if self.mem_dim ~= gru.mem_dim then error("GRU memory dimension mismatch") end
     if self.num_layers ~= gru.num_layers then error("GRU layer count mismatch") end
-    share_params(self.master_cell, gru.master_cell, ...)
+    utils.share_params(self.master_cell, gru.master_cell, ...)
 end
 
 function GRU:zeroGradParameters()
@@ -189,21 +189,5 @@ function GRU:forget()
         else
             self.gradInput[i]:zero()
         end
-    end
-end
-
-function share_params(cell, src)
-    if torch.type(cell) == 'nn.gModule' then
-        for i = 1, #cell.forwardnodes do
-            local node = cell.forwardnodes[i]
-            if node.data.module then
-                node.data.module:share(src.forwardnodes[i].data.module,
-                    'weight', 'bias', 'gradWeight', 'gradBias')
-            end
-        end
-    elseif torch.isTypeOf(cell, 'nn.Module') then
-        cell:share(src, 'weight', 'bias', 'gradWeight', 'gradBias')
-    else
-        error('parameters cannot be shared for this input')
     end
 end
