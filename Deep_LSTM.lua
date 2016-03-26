@@ -10,7 +10,7 @@ function Deep_LSTM:__init(config)
     self.mem_dim = config.mem_dim or 256
     self.learning_rate = config.learning_rate or 0.05
     self.batch_size = config.batch_size or 128
-    self.layers = config.layer or 1
+    self.layers = config.layers or 1
     self.vocab_size = config.vocab_size
     self.reg = config.reg or 1e-4
     self.bilstm = config.bilstm or false
@@ -92,6 +92,7 @@ function Deep_LSTM:train(dataset)
                 local seq, a = dataset:data_iter(dataset.doc_list[idx])
                 local inputs = self.emb:forward(seq)
                 local rep = self.lstm:forward(inputs)
+--                print(rep)
                 local logprobs = self.qa_module:forward(rep)
                 local cost_loss = self.criterion:forward(logprobs, a)
                 loss = loss + cost_loss
