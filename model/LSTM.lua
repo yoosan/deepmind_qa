@@ -17,7 +17,7 @@ function LSTM:__init(config)
 
     self.in_dim = config.in_dim
     self.mem_dim = config.mem_dim or 150
-    self.num_layers = config.num_layers or 1
+    self.layers = config.layers or 1
     self.gate_output = config.gate_output
     if self.gate_output == nil then self.gate_output = true end
 
@@ -28,14 +28,14 @@ function LSTM:__init(config)
     -- initial (t = 0) states for forward propagation and initial error signals
     -- for backpropagation
     local ctable_init, ctable_grad, htable_init, htable_grad
-    if self.num_layers == 1 then
+    if self.layers == 1 then
         ctable_init = torch.zeros(self.mem_dim)
         htable_init = torch.zeros(self.mem_dim)
         ctable_grad = torch.zeros(self.mem_dim)
         htable_grad = torch.zeros(self.mem_dim)
     else
         ctable_init, ctable_grad, htable_init, htable_grad = {}, {}, {}, {}
-        for i = 1, self.num_layers do
+        for i = 1, self.layers do
             ctable_init[i] = torch.zeros(self.mem_dim)
             htable_init[i] = torch.zeros(self.mem_dim)
             ctable_grad[i] = torch.zeros(self.mem_dim)
@@ -62,9 +62,9 @@ function LSTM:new_cell()
 
     -- multilayer LSTM
     local htable, ctable = {}, {}
-    for layer = 1, self.num_layers do
-        local h_p = (self.num_layers == 1) and htable_p or nn.SelectTable(layer)(htable_p)
-        local c_p = (self.num_layers == 1) and ctable_p or nn.SelectTable(layer)(ctable_p)
+    for layer = 1, self.layers do
+        local h_p = (self.layers == 1) and htable_p or nn.SelectTable(layer)(htable_p)
+        local c_p = (self.layers == 1) and ctable_p or nn.SelectTable(layer)(ctable_p)
 
         local new_gate = function()
             local in_module = (layer == 1)
@@ -130,11 +130,11 @@ function LSTM:forward(inputs, reverse)
 
         local outputs = cell:forward({input, prev_output[1], prev_output[2]})
         local ctable, htable = unpack(outputs)
-        if self.num_layers == 1 then
+        if self.layers == 1 then
             self.output = htable
         else
             self.output = {}
-            for i = 1, self.num_layers do
+            for i = 1, self.layers do
                 self.output[i] = htable[i]
             end
         end
@@ -144,7 +144,7 @@ end
 
 -- Backpropagate. forward() must have been called previously on the same input.
 -- inputs: T x in_dim tensor, where T is the number of time steps.
--- grad_outputs: T x num_layers x mem_dim tensor.
+-- grad_outputs: T x layers x mem_dim tensor.
 -- reverse: if true, read the input from right to left.
 -- Returns the gradients with respect to the inputs (in the same order as the inputs).
 function LSTM:backward(inputs, grad_outputs, reverse)
@@ -159,10 +159,10 @@ function LSTM:backward(inputs, grad_outputs, reverse)
         local grad_output = reverse and grad_outputs[size - t + 1] or grad_outputs[t]
         local cell = self.cells[self.depth]
         local grads = {self.gradInput[2], self.gradInput[3]}
-        if self.num_layers == 1 then
+        if self.layers == 1 then
             grads[2]:add(grad_output)
         else
-            for i = 1, self.num_layers do
+            for i = 1, self.layers do
                 grads[2][i]:add(grad_output[i])
             end
         end
@@ -184,7 +184,7 @@ end
 function LSTM:share(lstm, ...)
     if self.in_dim ~= lstm.in_dim then error("LSTM input dimension mismatch") end
     if self.mem_dim ~= lstm.mem_dim then error("LSTM memory dimension mismatch") end
-    if self.num_layers ~= lstm.num_layers then error("LSTM layer count mismatch") end
+    if self.layers ~= lstm.layers then error("LSTM layer count mismatch") end
     if self.gate_output ~= lstm.gate_output then error("LSTM output gating mismatch") end
     utils.share_params(self.master_cell, lstm.master_cell, ...)
 end
