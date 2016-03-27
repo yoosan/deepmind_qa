@@ -60,7 +60,7 @@ function RCDataset:to_word_ids(s, cand_map)
     for i = 1, #sents do
         table.insert(sent_ids, self:to_word_idx(sents[i], cand_map))
     end
-    return torch.Tensor(sent_ids):cuda()
+    return torch.Tensor(sent_ids)
 end
 
 function RCDataset:data_iter(doc_name, left)
@@ -69,9 +69,9 @@ function RCDataset:data_iter(doc_name, left)
     local seq
     left = left or true
     if left then
-        seq = torch.cat({ ctx, torch.CudaTensor { self.ivocab['<SEP>'] }, q }, 1)
+        seq = torch.cat({ ctx, torch.Tensor { self.ivocab['<SEP>'] }, q }, 1)
     else
-        seq = torch.cat({ q, torch.CudaTensor { self.ivocab['<SEP>'] }, ctx }, 1)
+        seq = torch.cat({ q, torch.Tensor { self.ivocab['<SEP>'] }, ctx }, 1)
     end
     return seq, a
 end
@@ -90,7 +90,7 @@ function RCDataset:generate_doc(doc_name)
         ctx = self:to_word_ids(ctx, {})
         q = self:to_word_ids(q, {})
         a = self:to_word_ids(a, {})
-        cands = torch.Tensor(cands):cuda()
+        cands = torch.Tensor(cands)
         return { ['context'] = ctx, ['question'] = q, ['answer'] = a, ['candidates'] = cands }
     else
         print('[*] error -> please set n_entities >= #cands')
